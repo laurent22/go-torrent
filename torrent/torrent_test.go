@@ -1,7 +1,6 @@
 package torrent
 
 import (
-	"net/url"
 	"../bencoding"
 	"net/http"
 	"testing"
@@ -38,6 +37,11 @@ func Test_FetchMetaInfo(t *testing.T) {
 	if metaInfoAnnounce.AsString != sampleTorrentAnnounceUrl {
 		t.Error("Invalid announce key")
 	}
+	
+	hash := metaInfoHash(metaInfo)
+	if len(hash) != 20 {
+		t.Errorf("Expected a length of %d, got %d", 20, len(hash))
+	}
 }
 
 func Test_NewTrackerQuery(t *testing.T) {
@@ -47,20 +51,15 @@ func Test_NewTrackerQuery(t *testing.T) {
 	torr := client.NewTorrent(sampleTorrentTrackerUrl)	
 	torr.FetchMetaInfo()
 	
-	q := torr.NewTrackerQuery()
-	var s string
-	var ok bool
+	query := client.NewTrackerQuery(torr)
 	
-	s, ok = q["info_hash"]
-	if !ok {
-		t.Error("Missing info_hash.")
-	} else {
-		s, _ = url.QueryUnescape(s)
-		if len(s) != 20 {
-			t.Errorf("info_hash length - expected %d, got %d", 20, len(s))
+	requiredFields := []string{"info_hash","peer_id","port","downloaded","uploaded","left","compact","numwant"}
+	for _, field := range requiredFields {
+		_, ok := query[field]
+		if !ok {
+			t.Errorf("Required field '%s' is missing", field)
 		}
 	}
-	
 }
 
 func Test_GeneratePeerId(t *testing.T) {
@@ -81,5 +80,17 @@ func Test_GeneratePeerId(t *testing.T) {
 	p2 := c.PeerId()
 	if p1 != p2 {
 		t.Errorf("The peer ID should not change within the same session: '%s' / '%s'", p1, p2)
+	}
+}
+
+func Test_ClientPort(t *testing.T) {
+	c := NewClient()
+	p1 := c.Port()
+	p2 := c.Port()
+	if p1 <= 0 {
+		t.Errorf("Expected port greated than zero, got %d", p1)
+	}
+	if p1 != p2 {
+		t.Errorf("Successive calls to Port() should return the same port: %d / %d", p1, p2)		
 	}
 }
