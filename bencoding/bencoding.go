@@ -26,6 +26,57 @@ type Any struct {
 	AsDictionary map[string]*Any
 }
 
+// Dictionary (
+// 	abcd: "zekmzalkeaz"
+// 	efgh: 123
+// 	eara: List (
+// 		0: 1321
+// 		1: 214324
+// 	)
+// )
+
+func dumpIndentSpaces(count int) string {
+	output := ""
+	for i := 0; i < count; i++ { output += "    " }
+	return output
+}
+
+func (this *Any) dump(indent int, current string) string {
+	if this.Type == String {
+		return current + "\"" + this.AsString + "\""
+	}
+
+	if this.Type == Int {
+		return current + strconv.Itoa(this.AsInt)
+	}
+	
+	if this.Type == List {
+		current += "[\n"
+		for i, e := range this.AsList {
+			current += dumpIndentSpaces(indent + 1) + strconv.Itoa(i) + ": "
+			current += e.dump(indent + 1, "") + "\n"
+		}
+		current += dumpIndentSpaces(indent) + "]"
+		return current
+	}
+	
+	if this.Type == Dictionary {
+		current += "{\n"
+		for k, e := range this.AsDictionary {
+			current += dumpIndentSpaces(indent + 1) + k + ": "
+			current += e.dump(indent + 1, "") + "\n"
+		}
+		current += dumpIndentSpaces(indent) + "}"
+		return current
+	}
+	
+	panic("unreachable")
+}
+
+func (this *Any) Dump() string {
+	return this.dump(0, "")
+}
+
 const (
 	stStarting = 0
 )
