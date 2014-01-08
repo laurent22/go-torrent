@@ -216,3 +216,19 @@ func Test_ParseDictionary(t *testing.T) {
 		if !compareAny(newAnyDictionary(output), newAnyDictionary(d.output)) { t.Errorf("Expected \"%s\", got \"%s\" at index %d", d.output, output, index) }
 	}
 }
+
+func Test_Parse(t *testing.T) {
+	{
+		output, err := Parse([]byte("4:abcd"))
+		if output.Type != String { t.Errorf("Expected string type, got %d", output.Type) }
+		if output.AsString != "abcd" { t.Errorf("Expected 'abcd', got %s", output.AsString) }
+		if err != nil { t.Errorf("Got error", err) }
+	}
+	
+	{
+		output, err := Parse([]byte("i1234e"))
+		if output.Type != Int { t.Errorf("Expected int type, got %d", output.Type) }
+		if output.AsInt != 1234 { t.Errorf("Expected 1234, got %d", output.AsInt) }
+		if err != nil { t.Errorf("Got error", err) }
+	}
+}

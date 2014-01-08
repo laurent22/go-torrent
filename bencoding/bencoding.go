@@ -165,3 +165,8 @@ func parseNext(input []byte, index int) (*Any, int, error) {
 
 	return nil, index, ErrUnsupportedType
 }
+
+func Parse(input []byte) (*Any, error) {
+	output, _, err := parseNext(input, 0)
+	return output, err
+}
