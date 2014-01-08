@@ -2,7 +2,6 @@ package bencoding
 
 import (
 	"errors"
-	"fmt"
 	"strconv"
 )
 
@@ -74,8 +73,8 @@ func parseString(input []byte, index int) (string, int, error) {
 	colonIndex := byteIndex(input, ':', index)
 	if colonIndex <= 0 { return "", index, ErrInvalidFormat }
 	stringLength, err := strconv.Atoi(string(input[index:colonIndex]))
-	if err != nil { return "", index, err }
-	if colonIndex + stringLength >= len(input) { return "", index, ErrInvalidLength }
+	if err != nil { return "", colonIndex + 1, err }
+	if colonIndex + stringLength >= len(input) { return "", colonIndex + 1, ErrInvalidLength }
 	output := input[colonIndex + 1 : colonIndex + 1 + stringLength]
 	return string(output), colonIndex + stringLength + 1, nil
 }
@@ -84,35 +83,54 @@ func parseInt(input []byte, index int) (int, int, error) {
 	if index >= len(input) { return 0, index, ErrEof }
 	if input[index] != 'i' { return 0, index, ErrInvalidFormat }
 	endIndex := byteIndex(input, 'e', index + 1)
-	if endIndex <= index + 1 { return 0, index, ErrInvalidFormat }
+	if endIndex <= index + 1 { return 0, index + 1, ErrInvalidFormat }
 	output, err := strconv.Atoi(string(input[index + 1 : endIndex]))
-	if err != nil { return 0, index, err }
+	if err != nil { return 0, index + 1, err }
 	return output, endIndex + 1, nil
 }
 
 func parseList(input []byte, index int) ([]*Any, int, error) {
-	_ = fmt.Println
-
 	if index >= len(input) { return []*Any{}, index, ErrEof }
 	if input[index] != 'l' { return []*Any{}, index, ErrInvalidFormat }
 
 	var output []*Any
-	for i := index + 1; i < len(input); i++ {
+	var i int
+	for i = index + 1; i < len(input); i++ {
 		if input[i] == 'e' {
 			index = i + 1
 			return output, index, nil
 		}
 		item, newIndex, err := parseNext(input, i)
-		i = newIndex - 1 // Decrement since it's going to be incremented in the for statement
 		if err != nil { return output, i, err }
+		i = newIndex - 1 // Decrement since it's going to be incremented in the for statement
 		output = append(output, item)
 	}
-	return []*Any{}, index, ErrInvalidFormat // Didn't find 'e' tag
+	return []*Any{}, i, ErrInvalidFormat // Didn't find 'e' tag
 }
 
 func parseDictionary(input []byte, index int) (map[string]*Any, int, error) {
-	var output map[string]*Any
-	return output, index, nil
+	if index >= len(input) { return map[string]*Any{}, index, ErrEof }
+	if input[index] != 'd' { return map[string]*Any{}, index, ErrInvalidFormat }
+
+	output := make(map[string]*Any)
+	var i int
+	for i = index + 1; i < len(input); i++ {
+		if input[i] == 'e' {
+			index = i + 1
+			return output, index, nil
+		}
+
+		key, newIndex, err := parseString(input, i)
+		if err != nil { return map[string]*Any{}, newIndex, err }
+		i = newIndex
+
+		value, newIndex, err := parseNext(input, i)		
+		if err != nil { return map[string]*Any{}, newIndex, err }
+		i = newIndex - 1 // Decrement since it's going to be incremented in the for statement
+		
+		output[key] = value
+	}
+	return map[string]*Any{}, i, ErrInvalidFormat // Didn't find 'e' tag
 }
 
 func parseNext(input []byte, index int) (*Any, int, error) {	

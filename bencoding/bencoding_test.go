@@ -74,16 +74,33 @@ func compareStringList(anyStringList []*Any, stringList []string) bool {
 }
 
 func compareAny(any1 *Any, any2 *Any) bool {
+	if any1 == nil && any2 != nil { return false }
+	if any1 != nil && any2 == nil { return false }
+	if any1 == nil && any2 == nil { return true }
 	if any1.Type != any2.Type { return false }
+
 	if any1.Type == String { return any1.AsString == any2.AsString }
+
 	if any1.Type == Int { return any1.AsInt == any2.AsInt }
+
 	if any1.Type == List {
+		if len(any1.AsList) != len(any2.AsList) { return false }
 		for i, e := range any1.AsList {
 			equal := compareAny(e, any2.AsList[i])
 			if !equal { return false }
 		}
 		return true
 	}
+
+	if any1.Type == Dictionary {
+		if len(any1.AsDictionary) != len(any2.AsDictionary) { return false }
+		for k, e := range any1.AsDictionary {
+			equal := compareAny(e, any2.AsDictionary[k])
+			if !equal { return false }
+		}
+		return true
+	}
+
 	panic("Unreachable")
 }
 
@@ -135,7 +152,67 @@ func Test_ParseList(t *testing.T) {
 	for _, d := range mixListTests {
 		output, _, err := parseList([]byte(d.input), 0)
 		if err != nil && d.err == ErrSomeError  { err = ErrSomeError }
-		if err != d.err                         { t.Errorf("Expected error '%s', got error '%s' for input '%s'", d.err, err, d.input) }
+		if err != d.err { t.Errorf("Expected error '%s', got error '%s' for input '%s'", d.err, err, d.input) }
 		if !compareAny(newAnyList(output), d.output) { t.Errorf("Expected \"%s\", got \"%s\"", d.output, output) }
+	}
+}
+
+func Test_ParseDictionary(t *testing.T) {
+	type MixListTest struct {
+		input string
+		output map[string]*Any
+		err error
+	}
+	
+	var mixListTests = []MixListTest{}
+	
+	var d MixListTest
+	
+	d.input = "di123e3:abcl1:x2:yyee"
+	d.output = map[string]*Any{}
+	d.err = ErrSomeError
+	mixListTests = append(mixListTests, d)
+	
+	d.input = ""
+	d.output = map[string]*Any{}
+	d.err = ErrEof
+	mixListTests = append(mixListTests, d)
+	
+	d.input = "d"
+	d.output = map[string]*Any{}
+	d.err = ErrInvalidFormat
+	mixListTests = append(mixListTests, d)
+	
+	d.input = "d3:key4AAAAe"
+	d.output = map[string]*Any{}
+	d.err = ErrInvalidFormat
+	mixListTests = append(mixListTests, d)
+
+	d.input = "d3:key4:AAAAe"
+	d.output = map[string]*Any{
+		"key": newAnyString("AAAA"),
+	}
+	d.err = nil
+	mixListTests = append(mixListTests, d)
+
+	d.input = "d3:key4:AAAA4:key2d2:XXi123e3:XXXli123ei456eeee"
+	d.output = map[string]*Any{
+		"key": newAnyString("AAAA"),
+		"key2": newAnyDictionary(map[string]*Any{
+			"XX": newAnyInt(123),
+			"XXX": newAnyList([]*Any{
+				newAnyInt(123),
+				newAnyInt(456),
+			}),
+		}),
+	}
+	d.err = nil
+	mixListTests = append(mixListTests, d)
+	
+	for _, d := range mixListTests {
+		output, index, err := parseDictionary([]byte(d.input), 0)
+		if err != nil && d.err == ErrSomeError  { err = ErrSomeError }
+		if err != d.err { t.Errorf("Expected error '%s', got error '%s' for input '%s' at index %d", d.err, err, d.input, index) }
+		if !compareAny(newAnyDictionary(output), newAnyDictionary(d.output)) { t.Errorf("Expected \"%s\", got \"%s\" at index %d", d.output, output, index) }
 	}
 }
