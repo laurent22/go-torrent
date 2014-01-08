@@ -6,12 +6,12 @@ import (
 )
 
 // This variable is to handle the case where a package returns a custom error
-// such as "strconv.ParseInt: parsing "blabla": invalid syntax".
+// such as "strconv.DecodeInt: parsing "blabla": invalid syntax".
 // In that case, we just expect "some error" but we don't
 // really care about the exact error.
 var ErrSomeError = errors.New("Some error")
 
-func Test_ParseString(t *testing.T) {
+func Test_DecodeString(t *testing.T) {
 	type StringTest struct {
 		input string
 		output string
@@ -29,13 +29,13 @@ func Test_ParseString(t *testing.T) {
 	}
 	
 	for _, d := range stringTests {
-		output, _, err := parseString([]byte(d.input), 0)
+		output, _, err := decodeString([]byte(d.input), 0)
 		if err != d.err       { t.Errorf("Expected error '%s', got error '%s'", d.err, err) }
 		if output != d.output { t.Errorf("Expected \"%s\", got \"%s\"", d.output, output) }
 	}
 }
 
-func Test_ParseInt(t *testing.T) {
+func Test_DecodeInt(t *testing.T) {
 	type IntTest struct {
 		input string
 		output int
@@ -57,7 +57,7 @@ func Test_ParseInt(t *testing.T) {
 	}
 	
 	for _, d := range intTests {
-		output, _, err := parseInt([]byte(d.input), 0)
+		output, _, err := decodeInt([]byte(d.input), 0)
 		if err != nil && d.err == ErrSomeError { err = ErrSomeError }
 		if err != d.err       { t.Errorf("Expected error '%s', got error '%s'", d.err, err) }
 		if output != d.output { t.Errorf("Expected \"%d\", got \"%d\"", d.output, output) }
@@ -104,7 +104,7 @@ func compareAny(any1 *Any, any2 *Any) bool {
 	panic("Unreachable")
 }
 
-func Test_ParseList(t *testing.T) {
+func Test_DecodeList(t *testing.T) {
 	type StringListTest struct {
 		input string
 		output []string
@@ -123,7 +123,7 @@ func Test_ParseList(t *testing.T) {
 	}
 	
 	for _, d := range stringListTests {
-		output, _, err := parseList([]byte(d.input), 0)
+		output, _, err := decodeList([]byte(d.input), 0)
 		if err != nil && d.err == ErrSomeError { err = ErrSomeError }
 		if err != d.err                         { t.Errorf("Expected error '%s', got error '%s' for input '%s'", d.err, err, d.input) }
 		if !compareStringList(output, d.output) { t.Errorf("Expected \"%s\", got \"%s\"", d.output, output) }
@@ -150,14 +150,14 @@ func Test_ParseList(t *testing.T) {
 	mixListTests = append(mixListTests, mixListTest)
 	
 	for _, d := range mixListTests {
-		output, _, err := parseList([]byte(d.input), 0)
+		output, _, err := decodeList([]byte(d.input), 0)
 		if err != nil && d.err == ErrSomeError  { err = ErrSomeError }
 		if err != d.err { t.Errorf("Expected error '%s', got error '%s' for input '%s'", d.err, err, d.input) }
 		if !compareAny(newAnyList(output), d.output) { t.Errorf("Expected \"%s\", got \"%s\"", d.output, output) }
 	}
 }
 
-func Test_ParseDictionary(t *testing.T) {
+func Test_DecodeDictionary(t *testing.T) {
 	type MixListTest struct {
 		input string
 		output map[string]*Any
@@ -210,25 +210,55 @@ func Test_ParseDictionary(t *testing.T) {
 	mixListTests = append(mixListTests, d)
 	
 	for _, d := range mixListTests {
-		output, index, err := parseDictionary([]byte(d.input), 0)
+		output, index, err := decodeDictionary([]byte(d.input), 0)
 		if err != nil && d.err == ErrSomeError  { err = ErrSomeError }
 		if err != d.err { t.Errorf("Expected error '%s', got error '%s' for input '%s' at index %d", d.err, err, d.input, index) }
 		if !compareAny(newAnyDictionary(output), newAnyDictionary(d.output)) { t.Errorf("Expected \"%s\", got \"%s\" at index %d", d.output, output, index) }
 	}
 }
 
-func Test_Parse(t *testing.T) {
+func Test_Decode(t *testing.T) {
 	{
-		output, err := Parse([]byte("4:abcd"))
+		output, err := Decode([]byte("4:abcd"))
 		if output.Type != String { t.Errorf("Expected string type, got %d", output.Type) }
 		if output.AsString != "abcd" { t.Errorf("Expected 'abcd', got %s", output.AsString) }
 		if err != nil { t.Errorf("Got error", err) }
 	}
 	
 	{
-		output, err := Parse([]byte("i1234e"))
+		output, err := Decode([]byte("i1234e"))
 		if output.Type != Int { t.Errorf("Expected int type, got %d", output.Type) }
 		if output.AsInt != 1234 { t.Errorf("Expected 1234, got %d", output.AsInt) }
 		if err != nil { t.Errorf("Got error", err) }
+	}
+}
+
+func Test_Encode(t *testing.T) {
+	var stringTests = []string{
+		"d3:key4:AAAA4:key2d2:XXi123e3:XXXli123ei456eeee",
+		"d3:key4:AAAAe",
+		"li123e3:abcl1:x2:yyee",
+		"l1:a2:abe",
+		"12:12345:789 12",
+		"3:abc",
+		"i123e",
+		"i1e",
+		"i0e",
+		"i-1e",
+		"i-123e",
+	}
+	
+	for _, s := range stringTests {
+		decoded, err := Decode([]byte(s))
+		if err != nil {
+			t.Fatal("Invalid input string:", s)
+		}
+		encoded, err := Encode(decoded)
+		if err != nil {
+			t.Error("Expected no error, got", err)
+		}
+		if string(encoded) != s {
+			t.Errorf("Expected '%s', got '%s'", s, string(encoded))
+		}
 	}
 }

@@ -2,6 +2,7 @@ package bencoding
 
 import (
 	"errors"
+	"sort"
 	"strconv"
 )
 
@@ -25,15 +26,6 @@ type Any struct {
 	AsList []*Any
 	AsDictionary map[string]*Any
 }
-
-// Dictionary (
-// 	abcd: "zekmzalkeaz"
-// 	efgh: 123
-// 	eara: List (
-// 		0: 1321
-// 		1: 214324
-// 	)
-// )
 
 func dumpIndentSpaces(count int) string {
 	output := ""
@@ -119,7 +111,7 @@ func byteIndex(input []byte, n byte, startIndex int) int {
 	return -1
 }
 
-func parseString(input []byte, index int) (string, int, error) {
+func decodeString(input []byte, index int) (string, int, error) {
 	if index >= len(input) { return "", index, ErrEof }
 	colonIndex := byteIndex(input, ':', index)
 	if colonIndex <= 0 { return "", index, ErrInvalidFormat }
@@ -130,7 +122,7 @@ func parseString(input []byte, index int) (string, int, error) {
 	return string(output), colonIndex + stringLength + 1, nil
 }
 
-func parseInt(input []byte, index int) (int, int, error) {
+func decodeInt(input []byte, index int) (int, int, error) {
 	if index >= len(input) { return 0, index, ErrEof }
 	if input[index] != 'i' { return 0, index, ErrInvalidFormat }
 	endIndex := byteIndex(input, 'e', index + 1)
@@ -140,7 +132,7 @@ func parseInt(input []byte, index int) (int, int, error) {
 	return output, endIndex + 1, nil
 }
 
-func parseList(input []byte, index int) ([]*Any, int, error) {
+func decodeList(input []byte, index int) ([]*Any, int, error) {
 	if index >= len(input) { return []*Any{}, index, ErrEof }
 	if input[index] != 'l' { return []*Any{}, index, ErrInvalidFormat }
 
@@ -151,7 +143,7 @@ func parseList(input []byte, index int) ([]*Any, int, error) {
 			index = i + 1
 			return output, index, nil
 		}
-		item, newIndex, err := parseNext(input, i)
+		item, newIndex, err := decodeNext(input, i)
 		if err != nil { return output, i, err }
 		i = newIndex - 1 // Decrement since it's going to be incremented in the for statement
 		output = append(output, item)
@@ -159,7 +151,7 @@ func parseList(input []byte, index int) ([]*Any, int, error) {
 	return []*Any{}, i, ErrInvalidFormat // Didn't find 'e' tag
 }
 
-func parseDictionary(input []byte, index int) (map[string]*Any, int, error) {
+func decodeDictionary(input []byte, index int) (map[string]*Any, int, error) {
 	if index >= len(input) { return map[string]*Any{}, index, ErrEof }
 	if input[index] != 'd' { return map[string]*Any{}, index, ErrInvalidFormat }
 
@@ -171,11 +163,11 @@ func parseDictionary(input []byte, index int) (map[string]*Any, int, error) {
 			return output, index, nil
 		}
 
-		key, newIndex, err := parseString(input, i)
+		key, newIndex, err := decodeString(input, i)
 		if err != nil { return map[string]*Any{}, newIndex, err }
 		i = newIndex
 
-		value, newIndex, err := parseNext(input, i)		
+		value, newIndex, err := decodeNext(input, i)		
 		if err != nil { return map[string]*Any{}, newIndex, err }
 		i = newIndex - 1 // Decrement since it's going to be incremented in the for statement
 		
@@ -184,32 +176,32 @@ func parseDictionary(input []byte, index int) (map[string]*Any, int, error) {
 	return map[string]*Any{}, i, ErrInvalidFormat // Didn't find 'e' tag
 }
 
-func parseNext(input []byte, index int) (*Any, int, error) {	
+func decodeNext(input []byte, index int) (*Any, int, error) {	
 	if index >= len(input) { return nil, index, ErrEof }
 	b := input[index]
 	switch {
 
 		case b >= '0' && b <= '9':
 			
-			s, index, err := parseString(input, index)
+			s, index, err := decodeString(input, index)
 			if err != nil { return nil, index, err }
 			return newAnyString(s), index, nil
 
 		case b == 'i':
 
-			i, index, err := parseInt(input, index)
+			i, index, err := decodeInt(input, index)
 			if err != nil { return nil, index, err }
 			return newAnyInt(i), index, nil
 			
 		case b == 'l':
 			
-			l, index, err := parseList(input, index)
+			l, index, err := decodeList(input, index)
 			if err != nil { return nil, index, err }
 			return newAnyList(l), index, nil
 
 		case b == 'd':
 
-			d, index, err := parseDictionary(input, index)
+			d, index, err := decodeDictionary(input, index)
 			if err != nil { return nil, index, err }
 			return newAnyDictionary(d), index, nil
 	}
@@ -217,7 +209,60 @@ func parseNext(input []byte, index int) (*Any, int, error) {
 	return nil, index, ErrUnsupportedType
 }
 
-func Parse(input []byte) (*Any, error) {
-	output, _, err := parseNext(input, 0)
+func appendBytes(dest []byte, source []byte) []byte {
+	output := dest
+	for _, b := range source {
+		output = append(output, b)
+	}
+	return output
+}
+
+func Decode(input []byte) (*Any, error) {
+	output, _, err := decodeNext(input, 0)
 	return output, err
+}
+
+func Encode(any *Any) ([]byte, error) {
+	if any.Type == String {
+		return []byte(strconv.Itoa(len(any.AsString)) + ":" + any.AsString), nil
+	}
+	
+	if any.Type == Int {
+		return []byte("i" + strconv.Itoa(any.AsInt) + "e"), nil
+	}
+	
+	if any.Type == List {
+		output := []byte{'l'}
+		for _, e := range any.AsList {
+			encoded, err := Encode(e)
+			if err != nil { return []byte{}, nil }
+			output = appendBytes(output, encoded)
+		}
+		output = append(output, 'e')
+		return output, nil
+	}
+	
+	if any.Type == Dictionary {
+		// The keys must be sorted first
+		var keys []string
+		for key, _ := range any.AsDictionary {
+			keys = append(keys, key)
+		}
+		sort.Strings(keys)
+
+		output := []byte{'d'}
+		for _, key := range keys {
+			e := any.AsDictionary[key]
+			encodedKey, err := Encode(newAnyString(key))
+			if err != nil { return []byte{}, nil }
+			output = appendBytes(output, encodedKey)
+			encoded, err := Encode(e)
+			if err != nil { return []byte{}, nil }
+			output = appendBytes(output, encoded)
+		}
+		output = append(output, 'e')
+		return output, nil
+	}
+	
+	panic("unreachable")
 }
