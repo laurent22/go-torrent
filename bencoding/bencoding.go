@@ -23,13 +23,41 @@ type Any struct {
 	Type int
 	AsString string
 	AsInt int
-	AsList []Any
-	AsDictionary map[string]Any
+	AsList []*Any
+	AsDictionary map[string]*Any
 }
 
 const (
 	stStarting = 0
 )
+
+func newAnyString(s string) *Any {
+	output := new(Any)
+	output.Type = String
+	output.AsString = s
+	return output
+}
+
+func newAnyInt(s int) *Any {
+	output := new(Any)
+	output.Type = Int
+	output.AsInt = s
+	return output
+}
+
+func newAnyList(s []*Any) *Any {
+	output := new(Any)
+	output.Type = List
+	output.AsList = s
+	return output
+}
+
+func newAnyDictionary(s map[string]*Any) *Any {
+	output := new(Any)
+	output.Type = Dictionary
+	output.AsDictionary = s
+	return output
+}
 
 func byteIndex(input []byte, n byte, startIndex int) int {
 	for i := startIndex; i < len(input); i++ {
@@ -52,7 +80,6 @@ func parseString(input []byte, index int) (string, int, error) {
 	return string(output), colonIndex + stringLength + 1, nil
 }
 
-// TODO: handle len(input) == 0
 func parseInt(input []byte, index int) (int, int, error) {
 	if index >= len(input) { return 0, index, ErrEof }
 	if input[index] != 'i' { return 0, index, ErrInvalidFormat }
@@ -63,13 +90,13 @@ func parseInt(input []byte, index int) (int, int, error) {
 	return output, endIndex + 1, nil
 }
 
-func parseList(input []byte, index int) ([]Any, int, error) {
+func parseList(input []byte, index int) ([]*Any, int, error) {
 	_ = fmt.Println
 
-	if index >= len(input) { return []Any{}, index, ErrEof }
-	if input[index] != 'l' { return []Any{}, index, ErrInvalidFormat }
+	if index >= len(input) { return []*Any{}, index, ErrEof }
+	if input[index] != 'l' { return []*Any{}, index, ErrInvalidFormat }
 
-	var output []Any
+	var output []*Any
 	for i := index + 1; i < len(input); i++ {
 		if input[i] == 'e' {
 			index = i + 1
@@ -80,90 +107,43 @@ func parseList(input []byte, index int) ([]Any, int, error) {
 		if err != nil { return output, i, err }
 		output = append(output, item)
 	}
-	return []Any{}, index, ErrInvalidFormat // Didn't find 'e' tag
+	return []*Any{}, index, ErrInvalidFormat // Didn't find 'e' tag
 }
 
-func parseDictionary(input []byte, index int) (map[string]Any, int, error) {
-	var output map[string]Any
+func parseDictionary(input []byte, index int) (map[string]*Any, int, error) {
+	var output map[string]*Any
 	return output, index, nil
 }
 
-func parseNext(input []byte, index int) (Any, int, error) {	
-	var output Any
-	if index >= len(input) { return output, index, ErrEof }
+func parseNext(input []byte, index int) (*Any, int, error) {	
+	if index >= len(input) { return nil, index, ErrEof }
 	b := input[index]
 	switch {
 
 		case b >= '0' && b <= '9':
 			
 			s, index, err := parseString(input, index)
-			if err != nil { return output, index, err }
-			output.AsString = s
-			output.Type = String
-			return output, index, nil
+			if err != nil { return nil, index, err }
+			return newAnyString(s), index, nil
 
 		case b == 'i':
 
 			i, index, err := parseInt(input, index)
-			if err != nil { return output, index, err }
-			output.AsInt = i
-			output.Type = Int
-			return output, index, nil
+			if err != nil { return nil, index, err }
+			return newAnyInt(i), index, nil
 			
 		case b == 'l':
 			
 			l, index, err := parseList(input, index)
-			if err != nil { return output, index, err }
-			output.AsList = l
-			output.Type = List
-			return output, index, nil
+			if err != nil { return nil, index, err }
+			return newAnyList(l), index, nil
 
 		case b == 'd':
 
 			d, index, err := parseDictionary(input, index)
-			if err != nil { return output, index, err }
-			output.AsDictionary = d
-			output.Type = List
-			return output, index, nil
+			if err != nil { return nil, index, err }
+			return newAnyDictionary(d), index, nil
 	}
 
-	return output, index, ErrUnsupportedType
-}
-
-func Parse(input []byte) (Any, error) {
-	var output Any
-	if len(input) == 0 { return output, ErrEmptyInput }
-	
-	b := input[0]
-	switch {
-
-		case b >= '0' && b <= '9':
-
-			s, _, err := parseString(input, 0)
-			if err != nil { return output, err }
-			output.AsString = s
-			output.Type = String
-
-		case b == 'i':
-
-			i, _, err := parseInt(input, 0)
-			if err != nil { return output, err }
-			output.AsInt = i
-			output.Type = Int
-
-		case b == 'l':
-
-			// list
-
-		case b == 'd':
-
-			//dictionary
-			
-		default:
-			
-			return output, ErrUnsupportedType
-
-	}
-	
-	return output, nil
+	return nil, index, ErrUnsupportedType
 }

@@ -64,13 +64,27 @@ func Test_ParseInt(t *testing.T) {
 	}
 }
 
-func compareStringList(anyStringList []Any, stringList []string) bool {
+func compareStringList(anyStringList []*Any, stringList []string) bool {
 	if len(anyStringList) != len(stringList) { return false }
 	for i, e := range anyStringList {
 		s := stringList[i]
 		if s != e.AsString { return false }
 	}
 	return true
+}
+
+func compareAny(any1 *Any, any2 *Any) bool {
+	if any1.Type != any2.Type { return false }
+	if any1.Type == String { return any1.AsString == any2.AsString }
+	if any1.Type == Int { return any1.AsInt == any2.AsInt }
+	if any1.Type == List {
+		for i, e := range any1.AsList {
+			equal := compareAny(e, any2.AsList[i])
+			if !equal { return false }
+		}
+		return true
+	}
+	panic("Unreachable")
 }
 
 func Test_ParseList(t *testing.T) {
@@ -80,7 +94,7 @@ func Test_ParseList(t *testing.T) {
 		err error
 	}
 	
-	var stringListTest = []StringListTest{
+	var stringListTests = []StringListTest{
 		{ "", []string{}, ErrEof },
 		{ "l", []string{}, ErrInvalidFormat },
 		{ "le", []string{}, nil },
@@ -91,10 +105,37 @@ func Test_ParseList(t *testing.T) {
 		{ "l1:a2:ab3:12e", []string{}, ErrInvalidFormat },
 	}
 	
-	for _, d := range stringListTest {
+	for _, d := range stringListTests {
 		output, _, err := parseList([]byte(d.input), 0)
 		if err != nil && d.err == ErrSomeError { err = ErrSomeError }
 		if err != d.err                         { t.Errorf("Expected error '%s', got error '%s' for input '%s'", d.err, err, d.input) }
 		if !compareStringList(output, d.output) { t.Errorf("Expected \"%s\", got \"%s\"", d.output, output) }
+	}
+
+	type MixListTest struct {
+		input string
+		output *Any
+		err error
+	}
+	
+	var mixListTests = []MixListTest{}
+	
+	var mixListTest MixListTest
+	mixListTest.input = "li123e3:abcl1:x2:yyee"
+	mixListTest.output = newAnyList([]*Any{
+		newAnyInt(123),
+		newAnyString("abc"),
+		newAnyList([]*Any{
+			newAnyString("x"),
+			newAnyString("yy"),
+		}),
+	})
+	mixListTests = append(mixListTests, mixListTest)
+	
+	for _, d := range mixListTests {
+		output, _, err := parseList([]byte(d.input), 0)
+		if err != nil && d.err == ErrSomeError  { err = ErrSomeError }
+		if err != d.err                         { t.Errorf("Expected error '%s', got error '%s' for input '%s'", d.err, err, d.input) }
+		if !compareAny(newAnyList(output), d.output) { t.Errorf("Expected \"%s\", got \"%s\"", d.output, output) }
 	}
 }
