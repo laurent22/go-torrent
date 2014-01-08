@@ -20,7 +20,8 @@ func Test_ParseString(t *testing.T) {
 	
 	var stringTests = []StringTest{
 		{ "1:a", "a", nil },
-		{ "",  "", ErrEmptyInput },
+		{ "", "", ErrEof },
+		{ "0:", "", nil },
 		{ ":abcd", "", ErrInvalidFormat },
 		{ "12:123456789 12", "123456789 12", nil },
 		{ "12:12345:789 12", "12345:789 12", nil },
@@ -45,7 +46,7 @@ func Test_ParseInt(t *testing.T) {
 		{ "ie", 0, ErrInvalidFormat },
 		{ "i", 0, ErrInvalidFormat },
 		{ "e", 0, ErrInvalidFormat },
-		{ "", 0, ErrEmptyInput },
+		{ "", 0, ErrEof },
 		{ "iblablae", 0, ErrSomeError },
 		{ "i123e", 123, nil },
 		{ "i1e", 1, nil },
@@ -60,5 +61,40 @@ func Test_ParseInt(t *testing.T) {
 		if err != nil && d.err == ErrSomeError { err = ErrSomeError }
 		if err != d.err       { t.Errorf("Expected error '%s', got error '%s'", d.err, err) }
 		if output != d.output { t.Errorf("Expected \"%d\", got \"%d\"", d.output, output) }
+	}
+}
+
+func compareStringList(anyStringList []Any, stringList []string) bool {
+	if len(anyStringList) != len(stringList) { return false }
+	for i, e := range anyStringList {
+		s := stringList[i]
+		if s != e.AsString { return false }
+	}
+	return true
+}
+
+func Test_ParseList(t *testing.T) {
+	type StringListTest struct {
+		input string
+		output []string
+		err error
+	}
+	
+	var stringListTest = []StringListTest{
+		{ "", []string{}, ErrEof },
+		{ "l", []string{}, ErrInvalidFormat },
+		{ "le", []string{}, nil },
+		{ "e", []string{}, ErrInvalidFormat },
+		{ "l1e", []string{}, ErrInvalidFormat },
+		{ "l1:ae", []string{"a"}, nil },
+		{ "l1:a2:abe", []string{"a","ab"}, nil },
+		{ "l1:a2:ab3:12e", []string{}, ErrInvalidFormat },
+	}
+	
+	for _, d := range stringListTest {
+		output, _, err := parseList([]byte(d.input), 0)
+		if err != nil && d.err == ErrSomeError { err = ErrSomeError }
+		if err != d.err                         { t.Errorf("Expected error '%s', got error '%s' for input '%s'", d.err, err, d.input) }
+		if !compareStringList(output, d.output) { t.Errorf("Expected \"%s\", got \"%s\"", d.output, output) }
 	}
 }
