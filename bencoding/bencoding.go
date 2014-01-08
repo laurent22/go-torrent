@@ -41,40 +41,40 @@ func dumpIndentSpaces(count int) string {
 	return output
 }
 
-func (this *Any) dump(indent int, current string) string {
+func (this *Any) dump(indent int) string {
 	if this.Type == String {
-		return current + "\"" + this.AsString + "\""
+		return "\"" + this.AsString + "\""
 	}
 
 	if this.Type == Int {
-		return current + strconv.Itoa(this.AsInt)
+		return strconv.Itoa(this.AsInt)
 	}
 	
 	if this.Type == List {
-		current += "[\n"
+		output := "[\n"
 		for i, e := range this.AsList {
-			current += dumpIndentSpaces(indent + 1) + strconv.Itoa(i) + ": "
-			current += e.dump(indent + 1, "") + "\n"
+			output += dumpIndentSpaces(indent + 1) + strconv.Itoa(i) + ": "
+			output += e.dump(indent + 1) + "\n"
 		}
-		current += dumpIndentSpaces(indent) + "]"
-		return current
+		output += dumpIndentSpaces(indent) + "]"
+		return output
 	}
 	
 	if this.Type == Dictionary {
-		current += "{\n"
+		output := "{\n"
 		for k, e := range this.AsDictionary {
-			current += dumpIndentSpaces(indent + 1) + k + ": "
-			current += e.dump(indent + 1, "") + "\n"
+			output += dumpIndentSpaces(indent + 1) + k + ": "
+			output += e.dump(indent + 1) + "\n"
 		}
-		current += dumpIndentSpaces(indent) + "}"
-		return current
+		output += dumpIndentSpaces(indent) + "}"
+		return output
 	}
 	
 	panic("unreachable")
 }
 
 func (this *Any) Dump() string {
-	return this.dump(0, "")
+	return this.dump(0)
 }
 
 const (

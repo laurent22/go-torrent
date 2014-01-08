@@ -149,11 +149,6 @@ func Test_ParseList(t *testing.T) {
 	})
 	mixListTests = append(mixListTests, mixListTest)
 	
-	t.Log("=====================")
-	t.Log("\n" + mixListTest.output.Dump())
-	t.Log("=====================")
-
-	
 	for _, d := range mixListTests {
 		output, _, err := parseList([]byte(d.input), 0)
 		if err != nil && d.err == ErrSomeError  { err = ErrSomeError }
@@ -213,10 +208,6 @@ func Test_ParseDictionary(t *testing.T) {
 	}
 	d.err = nil
 	mixListTests = append(mixListTests, d)
-	
-		t.Log("=====================")
-	t.Log("\n" + newAnyDictionary(d.output).Dump())
-	t.Log("=====================")
 	
 	for _, d := range mixListTests {
 		output, index, err := parseDictionary([]byte(d.input), 0)
