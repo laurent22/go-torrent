@@ -1,7 +1,7 @@
 package torrent
 
 import (
-	"../bencoding"
+	"torrent/bencoding"
 	"net/http"
 	"testing"
 )
@@ -10,7 +10,7 @@ var sampleTorrentTrackerUrl = "http://localhost:8080/LibreOffice.torrent"
 var sampleTorrentAnnounceUrl = "http://tracker.documentfoundation.org:6969/announce"
 
 func startTestServer() {
-	http.ListenAndServe(":8080", http.FileServer(http.Dir("../testing")))
+	http.ListenAndServe(":8080", http.FileServer(http.Dir("testing")))
 }
 
 func Test_FetchMetaInfo(t *testing.T) {
@@ -21,7 +21,7 @@ func Test_FetchMetaInfo(t *testing.T) {
 	err := torr.FetchMetaInfo()
 	
 	if err != nil {
-		t.Error("Error fetching meta info:", err)
+		t.Fatal("Error fetching meta info:", err)
 	}
 	
 	metaInfo := torr.MetaInfo()

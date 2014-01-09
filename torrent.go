@@ -6,7 +6,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
-	"../bencoding"
+	"torrent/bencoding"
 )
 
 const (
