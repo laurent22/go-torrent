@@ -12,7 +12,7 @@ type HttpCallOptions struct {
 	ReadWriteTimeout time.Duration
 }
 
-func TimeoutDialer(connectionTimeout time.Duration, readWriteTimeout time.Duration) func(net, addr string) (c net.Conn, err error) {
+func CustomDialer(connectionTimeout time.Duration, readWriteTimeout time.Duration) func(net, addr string) (c net.Conn, err error) {
 	return func(netw, addr string) (net.Conn, error) {
 		conn, err := net.DialTimeout(netw, addr, connectionTimeout)
 		if err != nil {
@@ -33,7 +33,7 @@ func NewHttpCallOptions() *HttpCallOptions {
 func httpClient(options *HttpCallOptions) *http.Client {
 	return &http.Client {
 		Transport: &http.Transport {
-			Dial: TimeoutDialer(options.ConnectionTimeout, options.ReadWriteTimeout),
+			Dial: CustomDialer(options.ConnectionTimeout, options.ReadWriteTimeout),
 	}}
 }
 
