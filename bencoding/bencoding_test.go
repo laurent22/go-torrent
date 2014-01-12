@@ -1,7 +1,11 @@
 package bencoding
 
 import (
-	"errors"	
+	"errors"
+	"path/filepath"
+	"io/ioutil"
+	"os"
+	"strings"
 	"testing"	
 )
 
@@ -261,4 +265,32 @@ func Test_Encode(t *testing.T) {
 			t.Errorf("Expected '%s', got '%s'", s, string(encoded))
 		}
 	}
+}
+
+func byteSlicesEqual(b1 []byte, b2 []byte) bool {
+	if len(b1) != len(b2) { return false }
+	for i, b := range b1 {
+		if b != b2[i] { return false }
+	}
+	return true
+}
+
+func Test_DecodingEncodingEquality(t *testing.T) {
+	visitPath := func (path string, f os.FileInfo, err error) error {
+		extension := strings.ToLower(filepath.Ext(path))
+		if extension != ".torrent" { return nil }
+		
+		original, err := ioutil.ReadFile(path)
+		if err != nil { t.Fatalf("Cannot read test file: %s", path) }
+		decoded, err := Decode(original)
+		if err != nil { t.Fatalf("Cannot decode file: %s", path) }
+		encoded, _ := Encode(decoded)
+		if err != nil { t.Fatalf("Cannot re-encode data: %s", path) }
+		
+		if !byteSlicesEqual(original, encoded) { t.Errorf("Re-encoded data differs from original data: %s", path) }
+		
+		return nil
+	} 
+	
+	filepath.Walk("../testing", visitPath)	
 }
