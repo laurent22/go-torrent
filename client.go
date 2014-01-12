@@ -1,7 +1,6 @@
 package torrent
 
 import (
-	"net/url"
 	"strconv"	
 )
 
@@ -30,17 +29,29 @@ func (this *Client) Port() int {
 	return this.port
 }
 
-func (this *Client) NewTrackerQuery(torr *Torrent) TrackerQuery {	
+func metaInfoHash(metaInfo *bencoding.Any) []byte {
+	hasher := sha1.New()
+	encodedMetaInfo, _ := bencoding.Encode(metaInfo.AsDictionary["info"])
+	hasher.Write(encodedMetaInfo)
+	return hasher.Sum(nil)
+}
+
+func (this *Client) NewTrackerQuery(torr *Torrent, event string) TrackerQuery {	
 	output := make(TrackerQuery)
 	
-	output["info_hash"] = url.QueryEscape(string(metaInfoHash(torr.MetaInfo())))
-	output["peer_id"] = url.QueryEscape(this.PeerId())
+	output["info_hash"] = string(metaInfoHash(torr.MetaInfo()))
+	output["peer_id"] = this.PeerId()
 	output["port"] = strconv.Itoa(this.Port())
-	output["downloaded"] = strconv.Itoa(torr.DownloadedCount())
-	output["uploaded"] = strconv.Itoa(torr.UploadedCount())
-	output["left"] = strconv.Itoa(torr.LeftCount())
+	if event != "started" {
+		output["downloaded"] = strconv.Itoa(torr.DownloadedCount())
+		output["uploaded"] = strconv.Itoa(torr.UploadedCount())
+		output["left"] = strconv.Itoa(torr.LeftCount())
+	}
 	output["compact"] = "1"
 	output["numwant"] = "50"
+	if event != "" {
+		output["event"] = event
+	}
 	
 	return output
 }
