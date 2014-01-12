@@ -1,7 +1,6 @@
 package torrent
 
 import (
-	"fmt"
 	"errors"
 	"sort"
 	"torrent/bencoding"
@@ -108,15 +107,16 @@ func (this *Torrent) MetaInfo() *bencoding.Any {
 
 func (this *Torrent) initializeSelectedFileIndexes() {
 	if this.IsSingleFile() {
+		this.selectedFileIndexes = make([]int, 0, 1)
 		this.selectedFileIndexes = append(this.selectedFileIndexes, 0)
 	} else {
-		info := this.MetaInfo().AsDictionary["info"].AsDictionary
-		for i, _ := range info["files"].AsList {
-			// TODO: allocate slice size in advance
+		files := this.MetaInfo().AsDictionary["info"].AsDictionary["files"].AsList
+		this.selectedFileIndexes = make([]int, 0, len(files))
+		for i, _ := range files {
 			this.selectedFileIndexes = append(this.selectedFileIndexes, i)
 		}
 	}
-		
+	
 	this.fileCount = len(this.selectedFileIndexes)
 }
 
@@ -134,7 +134,6 @@ func (this *Torrent) CallTracker(query TrackerQuery) (*bencoding.Any, error) {
 	announceUrl := this.MetaInfo().AsDictionary["announce"].AsString
 	callUrl := httpGetUrl(announceUrl, map[string]string(query))
 	body, err := httpGet(callUrl, NewHttpCallOptions())
-	fmt.Println(callUrl)
 	if err != nil {
 		return nil, err
 	}
@@ -152,4 +151,8 @@ func (this *Torrent) CallTracker(query TrackerQuery) (*bencoding.Any, error) {
 		return output, errors.New(failureReason.AsString)
 	}
 	return output, nil
+}
+
+func (this *Torrent) TrackerUpdate() {
+	
 }
