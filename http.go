@@ -4,12 +4,31 @@ import (
 	"io/ioutil"
 	"net"
 	"net/http"
+	"net/url"
+	"sort"
 	"time"
 )
 
 type HttpCallOptions struct {
 	ConnectionTimeout time.Duration
 	ReadWriteTimeout time.Duration
+}
+
+func httpGetUrl(baseUrl string, parameters map[string]string) string {
+	output := ""
+
+	var keys []string
+	for key, _ := range parameters {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+
+	for _, key := range keys {
+		if output != "" { output += "&" }
+		output += key + "=" + url.QueryEscape(parameters[key])
+	}
+	if output != "" { output = "?" + output }
+	return baseUrl + output
 }
 
 func CustomDialer(connectionTimeout time.Duration, readWriteTimeout time.Duration) func(net, addr string) (c net.Conn, err error) {

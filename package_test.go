@@ -94,3 +94,23 @@ func Test_ClientPort(t *testing.T) {
 		t.Errorf("Successive calls to Port() should return the same port: %d / %d", p1, p2)		
 	}
 }
+
+func Test_HttpGetUrl(t *testing.T) {
+	type GetUrlTest struct {
+		baseUrl string
+		parameters map[string]string
+		output string
+	}
+	
+	var tests = []GetUrlTest{
+		{ "http://test.com", map[string]string{"one":"123"}, "http://test.com?one=123" },
+		{ "http://test.com", map[string]string{}, "http://test.com" },
+		{ "http://test.com", map[string]string{"one":"123","two":"abcd","first":"555"}, "http://test.com?first=555&one=123&two=abcd" },
+		{ "http://test.com", map[string]string{"enc":"ab cdé"}, "http://test.com?enc=ab+cd%C3%A9" },
+	}
+	
+	for _, d := range tests {
+		output := httpGetUrl(d.baseUrl, d.parameters)
+		if output != d.output { t.Errorf("Expected \"%s\", got \"%s\"", d.output, output) }
+	}
+}
