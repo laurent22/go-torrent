@@ -38,7 +38,7 @@ func Test_FetchMetaInfo(t *testing.T) {
 		t.Error("Invalid announce key")
 	}
 	
-	hash := metaInfoHash(metaInfo)
+	hash := infoHash(metaInfo)
 	if len(hash) != 20 {
 		t.Errorf("Expected a length of %d, got %d", 20, len(hash))
 	}
@@ -51,7 +51,7 @@ func Test_NewTrackerQuery(t *testing.T) {
 	torr := client.NewTorrent(sampleTorrentTrackerUrl)	
 	torr.FetchMetaInfo()
 	
-	query := client.NewTrackerQuery(torr)
+	query := client.NewTrackerQuery(torr, "")
 	
 	requiredFields := []string{"info_hash","peer_id","port","downloaded","uploaded","left","compact","numwant"}
 	for _, field := range requiredFields {
@@ -112,5 +112,30 @@ func Test_HttpGetUrl(t *testing.T) {
 	for _, d := range tests {
 		output := httpGetUrl(d.baseUrl, d.parameters)
 		if output != d.output { t.Errorf("Expected \"%s\", got \"%s\"", d.output, output) }
+	}
+}
+
+func Test_TotalFileSize(t *testing.T) {
+	go startTestServer()
+	
+	type TotalFileSizeTest struct {
+		url string
+		expected int
+	}
+	 
+	var tests = []TotalFileSizeTest{
+		{ "http://localhost:8080/Despicable Me (2010) [1080p].torrent", 1549245214 },
+		{ "http://localhost:8080/The Cure - Disintegration [1989] (320 Kbps) [Dodecahedron].torrent", 177220781 },
+		{ "http://localhost:8080/The Pretenders - Break Up The Concrete (Advance) [2008] - Rock [www.torrentazos.com].torrent", 50630290 },
+		{ "http://localhost:8080/LibreOffice.torrent", 181549113 },
+	}
+	
+	client := NewClient()
+	
+	for _, d := range tests {
+		torr := client.NewTorrent(d.url)
+		torr.FetchMetaInfo()
+		output := torr.TotalFileSize()
+		if output != d.expected { t.Errorf("Expected \"%s\", got \"%s\"", d.expected, output) }
 	}
 }

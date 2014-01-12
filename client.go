@@ -1,7 +1,9 @@
 package torrent
 
 import (
-	"strconv"	
+	"crypto/sha1"
+	"strconv"
+	"torrent/bencoding"	
 )
 
 type Client struct {
@@ -29,7 +31,7 @@ func (this *Client) Port() int {
 	return this.port
 }
 
-func metaInfoHash(metaInfo *bencoding.Any) []byte {
+func infoHash(metaInfo *bencoding.Any) []byte {
 	hasher := sha1.New()
 	encodedMetaInfo, _ := bencoding.Encode(metaInfo.AsDictionary["info"])
 	hasher.Write(encodedMetaInfo)
@@ -39,7 +41,7 @@ func metaInfoHash(metaInfo *bencoding.Any) []byte {
 func (this *Client) NewTrackerQuery(torr *Torrent, event string) TrackerQuery {	
 	output := make(TrackerQuery)
 	
-	output["info_hash"] = string(metaInfoHash(torr.MetaInfo()))
+	output["info_hash"] = string(infoHash(torr.MetaInfo()))
 	output["peer_id"] = this.PeerId()
 	output["port"] = strconv.Itoa(this.Port())
 	if event != "started" {

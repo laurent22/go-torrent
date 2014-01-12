@@ -34,6 +34,21 @@ func (this *Torrent) LeftCount() int {
 	return 0 // TODO
 }
 
+func (this *Torrent) TotalFileSize() int {
+	info := this.MetaInfo().AsDictionary["info"].AsDictionary
+	_, hasMultipleFiles := info["files"]
+	
+	if !hasMultipleFiles {
+		return info["length"].AsInt
+	}
+	
+	output := 0
+	for _, dic := range info["files"].AsList {
+		output += dic.AsDictionary["length"].AsInt
+	}
+	return output
+}
+
 func (this *Torrent) MetaInfo() *bencoding.Any {
 	return this.metaInfo
 }

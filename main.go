@@ -3,12 +3,9 @@ package torrent
 // TODO: seed random num generator
 
 import (
-	"fmt"
-	"crypto/sha1"
 	"errors"
 	"math/rand"
 	"strings"
-	"torrent/bencoding"
 )
 
 const (
