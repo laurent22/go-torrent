@@ -14,6 +14,8 @@ const (
 )
 
 var ErrInvalidBencodedData = errors.New("invalid bencoded data")
+var ErrIndexOutOfBound = errors.New("index out bound")
+var ErrFileSelectionDuplicateIndex = errors.New("duplicate index in selection")
 
 type TrackerQuery map[string]string
 

@@ -139,3 +139,64 @@ func Test_TotalFileSize(t *testing.T) {
 		if output != d.expected { t.Errorf("Expected \"%s\", got \"%s\"", d.expected, output) }
 	}
 }
+
+func Test_IsSingleFile(t *testing.T) {
+	go startTestServer()
+	
+	type IsSingleFileTest struct {
+		url string
+		expected bool
+	}
+	 
+	var tests = []IsSingleFileTest{
+		{ "http://localhost:8080/Despicable Me (2010) [1080p].torrent", false },
+		{ "http://localhost:8080/The Cure - Disintegration [1989] (320 Kbps) [Dodecahedron].torrent", false },
+		{ "http://localhost:8080/LibreOffice.torrent", true },
+	}
+	
+	client := NewClient()
+	
+	for _, d := range tests {
+		torr := client.NewTorrent(d.url)
+		torr.FetchMetaInfo()
+		if torr.IsSingleFile() != d.expected { t.Errorf("Expected \"%s\", got \"%s\"", d.expected, torr.IsSingleFile()) }
+	}	
+}
+
+func Test_SelectedFileIndexes(t *testing.T) {
+	go startTestServer()
+	
+	type SelectedFileIndexesTest struct {
+		url string
+		initial int
+	}
+	 
+	var tests = []SelectedFileIndexesTest{
+		{ "http://localhost:8080/The Pretenders - Break Up The Concrete (Advance) [2008] - Rock [www.torrentazos.com].torrent", 15 },
+		{ "http://localhost:8080/LibreOffice.torrent", 1 },
+	}
+	
+	client := NewClient()
+	var err error
+	
+	for _, d := range tests {
+		torr := client.NewTorrent(d.url)
+		torr.FetchMetaInfo()
+		indexes := torr.SelectedFileIndexes()
+		if len(indexes) != d.initial { t.Errorf("Expected \"%s\", got \"%s\"", d.initial, len(indexes)) }
+		if torr.FileCount() != d.initial { t.Errorf("Expected \"%s\", got \"%s\"", d.initial, torr.FileCount()) }
+		
+		for i, index := range indexes {
+			if i != index { t.Errorf("Expected \"%s\", got \"%s\"", i, index) }			
+		}
+		
+		err = torr.SetSelectedFileIndexes([]int{0,torr.FileCount() + 1})
+		if err != ErrIndexOutOfBound { t.Errorf("Expected \"%s\", got \"%s\"", ErrIndexOutOfBound, err) }
+
+		err = torr.SetSelectedFileIndexes([]int{0})
+		if err != nil { t.Errorf("Expected no error, got \"%s\"", err) }
+		
+		err = torr.SetSelectedFileIndexes([]int{0,0,0})
+		if err != ErrFileSelectionDuplicateIndex { t.Errorf("Expected \"%s\", got \"%s\"", ErrFileSelectionDuplicateIndex, err) }
+	}
+}

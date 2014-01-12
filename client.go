@@ -44,11 +44,9 @@ func (this *Client) NewTrackerQuery(torr *Torrent, event string) TrackerQuery {
 	output["info_hash"] = string(infoHash(torr.MetaInfo()))
 	output["peer_id"] = this.PeerId()
 	output["port"] = strconv.Itoa(this.Port())
-	if event != "started" {
-		output["downloaded"] = strconv.Itoa(torr.DownloadedCount())
-		output["uploaded"] = strconv.Itoa(torr.UploadedCount())
-		output["left"] = strconv.Itoa(torr.LeftCount())
-	}
+	output["downloaded"] = strconv.Itoa(torr.DownloadedSize())
+	output["uploaded"] = strconv.Itoa(torr.UploadedSize())
+	output["left"] = strconv.Itoa(torr.LeftSize())
 	output["compact"] = "1"
 	output["numwant"] = "50"
 	if event != "" {

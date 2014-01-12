@@ -3,6 +3,7 @@ package torrent
 import (
 	"fmt"
 	"errors"
+	"sort"
 	"torrent/bencoding"
 )
 
@@ -10,6 +11,8 @@ type Torrent struct {
 	url string
 	metaInfo *bencoding.Any
 	client *Client
+	selectedFileIndexes []int
+	fileCount int
 }
 
 func (this *Client) NewTorrent(url string) *Torrent {
@@ -18,27 +21,71 @@ func (this *Client) NewTorrent(url string) *Torrent {
 	return output
 }
 
+func (this *Torrent) FileCount() int {
+	return this.fileCount
+}
+
+func (this *Torrent) SelectedFileIndexes() []int {
+	return this.selectedFileIndexes
+}
+
+func (this *Torrent) SetSelectedFileIndexes(selection []int) error {
+	sort.Ints(selection)
+	previous := -1
+	for i := 0; i < len(selection); i++ {
+		index := selection[i]
+		if index < 0 { return ErrIndexOutOfBound }
+		if index >= this.fileCount { return ErrIndexOutOfBound }
+		if previous == index { return ErrFileSelectionDuplicateIndex }
+		previous = index
+	}
+	this.selectedFileIndexes = selection
+	return nil
+}
+
 func (this *Torrent) Url() string {
 	return this.url
 }
 
-func (this *Torrent) DownloadedCount() int {
+func (this *Torrent) DownloadedSize() int {
 	return 0 // TODO
 }
 
-func (this *Torrent) UploadedCount() int {
+func (this *Torrent) UploadedSize() int {
 	return 0 // TODO
 }
 
-func (this *Torrent) LeftCount() int {
-	return 0 // TODO
+func (this *Torrent) LeftSize() int {
+	return this.SelectedFileSize() - this.DownloadedSize()
+}
+
+func (this *Torrent) FileIndexIsSelected(index int) bool {
+	for _, i := range this.selectedFileIndexes {
+		if i == index { return true }
+	}
+	return false
+}
+
+func (this *Torrent) SelectedFileSize() int {
+	info := this.MetaInfo().AsDictionary["info"].AsDictionary
+	
+	if this.IsSingleFile() {
+		return info["length"].AsInt
+	}
+	
+	output := 0
+	for i, dic := range info["files"].AsList {
+		if this.FileIndexIsSelected(i) {
+			output += dic.AsDictionary["length"].AsInt
+		}
+	}
+	return output	
 }
 
 func (this *Torrent) TotalFileSize() int {
 	info := this.MetaInfo().AsDictionary["info"].AsDictionary
-	_, hasMultipleFiles := info["files"]
 	
-	if !hasMultipleFiles {
+	if this.IsSingleFile() {
 		return info["length"].AsInt
 	}
 	
@@ -49,8 +96,28 @@ func (this *Torrent) TotalFileSize() int {
 	return output
 }
 
+func (this *Torrent) IsSingleFile() bool {
+	info := this.MetaInfo().AsDictionary["info"].AsDictionary
+	_, hasMultipleFiles := info["files"]
+	return !hasMultipleFiles	
+}
+
 func (this *Torrent) MetaInfo() *bencoding.Any {
 	return this.metaInfo
+}
+
+func (this *Torrent) initializeSelectedFileIndexes() {
+	if this.IsSingleFile() {
+		this.selectedFileIndexes = append(this.selectedFileIndexes, 0)
+	} else {
+		info := this.MetaInfo().AsDictionary["info"].AsDictionary
+		for i, _ := range info["files"].AsList {
+			// TODO: allocate slice size in advance
+			this.selectedFileIndexes = append(this.selectedFileIndexes, i)
+		}
+	}
+		
+	this.fileCount = len(this.selectedFileIndexes)
 }
 
 func (this *Torrent) FetchMetaInfo() error {
@@ -59,6 +126,7 @@ func (this *Torrent) FetchMetaInfo() error {
 	metaInfo, err := bencoding.Decode(body)
 	if err != nil { return err }
 	this.metaInfo = metaInfo
+	this.initializeSelectedFileIndexes()
 	return nil
 }
 
